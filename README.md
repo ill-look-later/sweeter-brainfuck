@@ -12,7 +12,7 @@ A *Sweeter-brainfuck* Interpreter and Visualizer
 
 ## License
 
-Original work Copyright © 2013-2015 coldnew
+Original work Copyright © 2013-2015 coldnew  
 Modified work Copyright 2016 iovxw
 
 Distributed under the Eclipse Public License, the same as Clojure.
