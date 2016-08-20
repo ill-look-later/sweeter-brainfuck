@@ -1,0 +1,41 @@
+body {
+    background: #151515;
+    margin: 0;
+}
+
+.box {
+    background: #272727;
+    width: 50%;
+    min-width: 512px;
+    margin: 0 auto;
+    padding: 10px;
+}
+
+textarea {
+    background: #272727;
+    color: white;
+    margin-bottom: 5px;
+    height: auto;
+    min-height: 256px;
+    width: 100%;
+}
+
+#input {
+    color: white;
+    min-height: 128px;
+}
+
+#output {
+    color: white;
+    background: #272727;
+    width: 100%;
+    min-height: 1em;
+    padding: 3px;
+    border: 1px solid white;
+    box-sizing: border-box;
+}
+
+#run {
+    float: right;
+    margin-bottom: 5px;
+}

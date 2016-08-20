@@ -1,5 +1,6 @@
 (ns cljs-brainfuck.core
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [reagent.core :as r]))
 
 (defn bf-loop [direction pointer commands]
   (let [val (if (= direction :forward) 1 -1)]
@@ -44,8 +45,27 @@
       (swap! pointer inc)
       (if-not (= @pointer (count commands)) (recur)))))
 
-(enable-console-print!)
+(def source (r/atom "72+.>101+.>108+..>111+.>32+.>87+.2<.3>114+.4<.5>100+.>33+."))
+(def user-input (r/atom ""))
+(def output (r/atom ""))
 
-(interpret "72+.>101+.>108+..>111+.>32+.>87+.2<.3>114+.4<.5>100+.>33+."
-           (fn [] 0)
-           (fn [cell] (prn (char cell))))
+(defn body []
+  [:div.box
+   [:textarea#source {:on-change #(reset! source (-> % .-target .-value))
+                      :value @source}]
+   [:button#run
+    {:on-click #(do (reset! output "")
+                    (interpret @source
+                               (fn []
+                                 (let [code (.charCodeAt @user-input 0)]
+                                   (reset! user-input (apply str (next @user-input)))
+                                   code))
+                               (fn [cell]
+                                 (swap! output str (char cell)))))}
+    "Run"]
+   [:textarea#input {:on-change #(reset! user-input (-> % .-target .-value))
+                     :value @user-input}]
+   [:div#output [:pre @output]]])
+
+(r/render-component [body]
+                    (.-body js/document))
