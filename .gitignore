@@ -3,6 +3,6 @@ hs_err_pid*.log
 pom.xml
 pom.xml.asc
 **/gen
-**/target
+**/target/public/main.out
 .*
 !.gitignore
