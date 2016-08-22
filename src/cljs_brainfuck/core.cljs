@@ -26,6 +26,30 @@
       \- (swap! cells update @cell - (char-list-to-int buf))
       ())))
 
+(defn make-cell-div [index value highlight?]
+  ^{:key index} ; http://stackoverflow.com/a/33458370
+  [(if highlight? :div.cell.highlight :div.cell)
+   [:div.value value] [:div.index index]])
+
+(defn make-cells-box [cells cell]
+  [:div#cells-box
+   (loop [elms [], cells cells, prev-i -1]
+     (if-let [c (first cells)]
+       (let [[i v] c
+             zero-elms (for [i (range (inc prev-i) i)]
+                         (make-cell-div i 0 (= i cell)))
+             elm (make-cell-div i v (= i cell))
+             elms (concat elms zero-elms [elm])]
+         (recur elms (next cells) i))
+       elms))])
+
+(enable-console-print!)
+
+(def cells-box (r/atom (make-cells-box {10 0} 0)))
+(def source (r/atom "72+.>101+.>108+..>111+.>32+.>87+.2<.3>114+.4<.5>100+.>33+."))
+(def user-input (r/atom ""))
+(def output (r/atom ""))
+
 (defn interpret [commands input-func output-func]
   (let [cell  (atom 0)
         cells (atom (sorted-map))
@@ -42,15 +66,13 @@
         \[ (if (= (get @cells @cell) 0) (bf-loop :forward  pointer commands))
         \] (if-not (= (get @cells @cell) 0) (bf-loop :backward pointer commands))
         ())
+      (reset! cells-box (make-cells-box @cells @cell))
       (swap! pointer inc)
       (if-not (= @pointer (count commands)) (recur)))))
 
-(def source (r/atom "72+.>101+.>108+..>111+.>32+.>87+.2<.3>114+.4<.5>100+.>33+."))
-(def user-input (r/atom ""))
-(def output (r/atom ""))
-
 (defn body []
   [:div.box
+   @cells-box
    [:textarea#source {:on-change #(reset! source (-> % .-target .-value))
                       :value @source}]
    [:button#run

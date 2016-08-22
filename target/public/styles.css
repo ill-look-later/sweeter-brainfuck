@@ -39,3 +39,29 @@ textarea {
     float: right;
     margin-bottom: 5px;
 }
+
+#cells-box {
+    display: flex;
+}
+
+.cell {
+    color: white;
+    min-width: 2em;
+    margin-bottom: 3px;
+}
+
+.cell.highlight {
+    background: gray;
+}
+
+.cell .value {
+    border: 1px solid white;
+    box-sizing: border-box;
+    padding: 2px;
+    text-align: right;
+}
+
+.cell .index {
+    text-align: center;
+    font-size: 0.6em;
+}
