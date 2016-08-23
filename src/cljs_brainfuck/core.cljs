@@ -17,15 +17,31 @@
 (defn char-list-to-int [char-list]
   (js/parseInt (apply str char-list)))
 
+(defn cell+ [cells cell n]
+  (swap! cells update @cell + n))
+
+(defn cell- [cells cell n]
+  (swap! cells update @cell - n))
+
+(defn cell> [cells cell n]
+  (swap! cell + n)
+  (when-not (get @cells @cell)
+    (swap! cells assoc @cell 0)))
+
+(defn cell< [cells cell n]
+  (swap! cell - n)
+  (when-not (get @cells @cell)
+    (swap! cells assoc @cell 0)))
+
 (defn sugar [cell cells pointer commands]
   (loop [buf [], c (nth commands @pointer)]
     (case c
       (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9) (do (swap! pointer inc)
                                           (recur (conj buf c) (nth commands @pointer)))
-      \> (swap! cell + (char-list-to-int buf))
-      \< (swap! cell - (char-list-to-int buf))
-      \+ (swap! cells update @cell + (char-list-to-int buf))
-      \- (swap! cells update @cell - (char-list-to-int buf))
+      \> (cell> cells cell (char-list-to-int buf))
+      \< (cell< cells cell (char-list-to-int buf))
+      \+ (cell+ cells cell (char-list-to-int buf))
+      \- (cell- cells cell (char-list-to-int buf))
       ())))
 
 (defn make-cell-div [index value highlight?]
@@ -45,67 +61,88 @@
          (recur elms (next cells) i))
        elms))])
 
+(defn make-source-div [commands pointer]
+  [:pre#source-box (subs commands 0 pointer)
+   [:span (nth commands pointer)]
+   (subs commands (inc pointer))])
+
 (enable-console-print!)
 
 (def cells-div (r/atom (make-cells-div {10 0} 0)))
 (def commands (r/atom "72+.>101+.>108+..>111+.>32+.>87+.2<.3>114+.4<.5>100+.>33+."))
+(def pointer (atom 0))
+(def source-div (r/atom (make-source-div @commands @pointer)))
 (def user-input (r/atom ""))
 (def output (r/atom ""))
 (def interpret-delay (r/atom 0))
+(def status (r/atom :stop))
 (def cell (atom 0))
 (def cells (atom (sorted-map)))
-(def pointer (atom 0))
-(def status (atom :done))
-(def stop-chan (chan))
+(def break-chan (chan))
+
+(defn reinit []
+  (reset! output "")
+  (reset! cell 0)
+  (reset! cells (sorted-map))
+  (reset! pointer 0))
 
 (defn interpret-one-step [commands input-func output-func]
-  (case (nth @commands @pointer)
-    \> (swap! cell inc)
-    \< (swap! cell dec)
-    \+ (swap! cells update @cell inc)
-    \- (swap! cells update @cell dec)
-    (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9) (sugar cell cells pointer @commands)
+  (case (nth commands @pointer)
+    \> (cell> cells cell 1)
+    \< (cell< cells cell 1)
+    \+ (cell+ cells cell 1)
+    \- (cell- cells cell 1)
+    (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9) (sugar cell cells pointer commands)
     \. (output-func (get @cells @cell))
     \, (swap! cells assoc @cell (input-func))
-    \[ (when (= (get @cells @cell) 0) (bf-loop :forward  pointer @commands))
-    \] (when-not (= (get @cells @cell) 0) (bf-loop :backward pointer @commands))
+    \[ (when (= (get @cells @cell) 0) (bf-loop :forward  pointer commands))
+    \] (when-not (= (get @cells @cell) 0) (bf-loop :backward pointer commands))
     ()))
 
 (defn interpret [commands input-func output-func]
+  (reset! status :running)
   (go-loop []
+    (interpret-one-step @commands input-func output-func)
+    (reset! cells-div (make-cells-div @cells @cell))
+    (reset! source-div (make-source-div @commands @pointer))
+    (swap! pointer inc)
     (let [[v ch] (alts! [(timeout @interpret-delay)
-                         stop-chan])]
-      (case ch
-        stop-chan nil ; break loop
-        (do (interpret-one-step commands input-func output-func)
-            (reset! cells-div (make-cells-div @cells @cell))
-            (swap! pointer inc)
-            (if-not (>= @pointer (count @commands))
-              (recur)
-              (reset! status :done)))))))
+                         break-chan])]
+      (when-not (= ch break-chan)
+        (if-not (>= @pointer (count @commands))
+          (recur)
+          (reset! status :stop))))))
 
 (defn body []
   [:div.box
    @cells-div
-   [:textarea#source {:on-change #(reset! commands (-> % .-target .-value))
-                      :value @commands}]
+   (if (= @status :stop)
+     [:textarea#source {:on-change #(reset! commands (-> % .-target .-value))
+                        :value @commands}]
+     @source-div)
    [:div.actions
-    [:input {:type "range" :step 30 :min 0 :max 300 :value @interpret-delay
+    [:input {:type "range" :step 30 :min 0 :max 900 :value @interpret-delay
              :on-change #(reset! interpret-delay (js/parseInt (-> % .-target .-value)))}]
-    [:button#run
-     {:on-click #(do (when (or (>= @pointer (count @commands)) (= @status :done))
-                       (reset! output "")
-                       (reset! cell 0)
-                       (reset! cells (sorted-map))
-                       (reset! pointer 0))
-                     (interpret commands
-                                (fn []
-                                  (let [code (.charCodeAt @user-input 0)]
-                                    (reset! user-input (apply str (next @user-input)))
-                                    code))
-                                (fn [cell]
-                                  (swap! output str (char cell)))))}
-     "Run"]]
+    (if (= @status :running)
+      [:div
+       [:button {:on-click #(go (>! break-chan true)
+                                (reset! status :pause))}
+        "Pause"]
+       [:button {:on-click #(go (>! break-chan true)
+                                (reset! status :stop))}
+        "Stop"]]
+      [:button
+       {:on-click #(do (when (= @status :stop) (reinit))
+                       (interpret commands
+                              (fn []
+                                (let [code (.charCodeAt @user-input 0)]
+                                  (reset! user-input (apply str (next @user-input)))
+                                  code))
+                              (fn [cell]
+                                (swap! output str (char cell)))))}
+       (if (= @status :pause)
+         "Continue"
+         "Run")])]
    [:textarea#input {:on-change #(reset! user-input (-> % .-target .-value))
                      :value @user-input}]
    [:div#output [:pre @output]]])

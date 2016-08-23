@@ -18,6 +18,24 @@ textarea {
     height: auto;
     min-height: 256px;
     width: 100%;
+    padding: 3px;
+    box-sizing: border-box;
+}
+
+#source-box {
+    border: 1px solid white;
+    background: #272727;
+    color: white;
+    margin: 0 0 5px 0;
+    height: auto;
+    min-height: 256px;
+    width: 100%;
+    padding: 3px;
+    box-sizing: border-box;
+}
+
+#source-box span {
+    background: gray;
 }
 
 #input {
@@ -40,7 +58,7 @@ textarea {
     display: flex;
 }
 
-#run {
+.actions button, .actions div {
     margin: auto 0 auto auto;
 }
 
