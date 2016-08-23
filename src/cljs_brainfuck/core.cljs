@@ -33,17 +33,6 @@
   (when-not (get @cells @cell)
     (swap! cells assoc @cell 0)))
 
-(defn sugar [cell cells pointer commands]
-  (loop [buf [], c (nth commands @pointer)]
-    (case c
-      (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9) (do (swap! pointer inc)
-                                          (recur (conj buf c) (nth commands @pointer)))
-      \> (cell> cells cell (char-list-to-int buf))
-      \< (cell< cells cell (char-list-to-int buf))
-      \+ (cell+ cells cell (char-list-to-int buf))
-      \- (cell- cells cell (char-list-to-int buf))
-      ())))
-
 (defn make-cell-div [index value highlight?]
   ^{:key index} ; http://stackoverflow.com/a/33458370
   [(if highlight? :div.cell.highlight :div.cell)
@@ -102,12 +91,24 @@
     \< (cell< cells cell 1)
     \+ (cell+ cells cell 1)
     \- (cell- cells cell 1)
-    (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9) (sugar cell cells pointer commands)
+    (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9)
+    (loop [buf [], c (nth commands @pointer)]
+      (case c
+        (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9)
+        (do (swap! pointer inc)
+            (recur (conj buf c) (nth commands @pointer)))
+        \> (cell> cells cell (char-list-to-int buf))
+        \< (cell< cells cell (char-list-to-int buf))
+        \+ (cell+ cells cell (char-list-to-int buf))
+        \- (cell- cells cell (char-list-to-int buf))
+        (interpret-one-step commands input-func output-func)))
     \. (output-func (get @cells @cell))
     \, (swap! cells assoc @cell (input-func))
     \[ (when (= (get @cells @cell) 0) (bf-loop :forward  pointer commands))
     \] (when-not (= (get @cells @cell) 0) (bf-loop :backward pointer commands))
-    ()))
+    (do (swap! pointer inc)
+        (when-not (>= @pointer (count commands))
+          (recur commands input-func output-func)))))
 
 (defn interpret [commands input-func output-func]
   (reset! status :running)
