@@ -35,9 +35,13 @@ textarea {
     box-sizing: border-box;
 }
 
-#run {
-    float: right;
+.actions {
     margin-bottom: 5px;
+    display: flex;
+}
+
+#run {
+    margin: auto 0 auto auto;
 }
 
 #cells-box {

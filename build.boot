@@ -5,7 +5,8 @@
                   [adzerk/boot-reload "0.4.12" :scope "test"]
                   [pandeiro/boot-http "0.7.3" :scope "test"]
                   ; project deps
-                  [org.clojure/clojurescript "1.9.216"]
+                  [org.clojure/clojurescript "1.9.225"]
+                  [org.clojure/core.async "0.2.385"]
                   [reagent "0.6.0-rc"]])
 
 (require

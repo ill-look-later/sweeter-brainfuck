@@ -1,5 +1,7 @@
 (ns cljs-brainfuck.core
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [clojure.string :as str]
+            [cljs.core.async :refer [chan <! >! timeout alts!]]
             [reagent.core :as r]))
 
 (defn bf-loop [direction pointer commands]
@@ -31,7 +33,7 @@
   [(if highlight? :div.cell.highlight :div.cell)
    [:div.value value] [:div.index index]])
 
-(defn make-cells-box [cells cell]
+(defn make-cells-div [cells cell]
   [:div#cells-box
    (loop [elms [], cells cells, prev-i -1]
      (if-let [c (first cells)]
@@ -45,46 +47,65 @@
 
 (enable-console-print!)
 
-(def cells-box (r/atom (make-cells-box {10 0} 0)))
-(def source (r/atom "72+.>101+.>108+..>111+.>32+.>87+.2<.3>114+.4<.5>100+.>33+."))
+(def cells-div (r/atom (make-cells-div {10 0} 0)))
+(def commands (r/atom "72+.>101+.>108+..>111+.>32+.>87+.2<.3>114+.4<.5>100+.>33+."))
 (def user-input (r/atom ""))
 (def output (r/atom ""))
+(def interpret-delay (r/atom 0))
+(def cell (atom 0))
+(def cells (atom (sorted-map)))
+(def pointer (atom 0))
+(def status (atom :done))
+(def stop-chan (chan))
+
+(defn interpret-one-step [commands input-func output-func]
+  (case (nth @commands @pointer)
+    \> (swap! cell inc)
+    \< (swap! cell dec)
+    \+ (swap! cells update @cell inc)
+    \- (swap! cells update @cell dec)
+    (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9) (sugar cell cells pointer @commands)
+    \. (output-func (get @cells @cell))
+    \, (swap! cells assoc @cell (input-func))
+    \[ (when (= (get @cells @cell) 0) (bf-loop :forward  pointer @commands))
+    \] (when-not (= (get @cells @cell) 0) (bf-loop :backward pointer @commands))
+    ()))
 
 (defn interpret [commands input-func output-func]
-  (let [cell  (atom 0)
-        cells (atom (sorted-map))
-        pointer (atom 0)]
-    (loop []
-      (case (nth commands @pointer)
-        \> (swap! cell inc)
-        \< (swap! cell dec)
-        \+ (swap! cells update @cell inc)
-        \- (swap! cells update @cell dec)
-        (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9) (sugar cell cells pointer commands)
-        \. (output-func (get @cells @cell))
-        \, (swap! cells assoc @cell (input-func))
-        \[ (if (= (get @cells @cell) 0) (bf-loop :forward  pointer commands))
-        \] (if-not (= (get @cells @cell) 0) (bf-loop :backward pointer commands))
-        ())
-      (reset! cells-box (make-cells-box @cells @cell))
-      (swap! pointer inc)
-      (if-not (= @pointer (count commands)) (recur)))))
+  (go-loop []
+    (let [[v ch] (alts! [(timeout @interpret-delay)
+                         stop-chan])]
+      (case ch
+        stop-chan nil ; break loop
+        (do (interpret-one-step commands input-func output-func)
+            (reset! cells-div (make-cells-div @cells @cell))
+            (swap! pointer inc)
+            (if-not (>= @pointer (count @commands))
+              (recur)
+              (reset! status :done)))))))
 
 (defn body []
   [:div.box
-   @cells-box
-   [:textarea#source {:on-change #(reset! source (-> % .-target .-value))
-                      :value @source}]
-   [:button#run
-    {:on-click #(do (reset! output "")
-                    (interpret @source
-                               (fn []
-                                 (let [code (.charCodeAt @user-input 0)]
-                                   (reset! user-input (apply str (next @user-input)))
-                                   code))
-                               (fn [cell]
-                                 (swap! output str (char cell)))))}
-    "Run"]
+   @cells-div
+   [:textarea#source {:on-change #(reset! commands (-> % .-target .-value))
+                      :value @commands}]
+   [:div.actions
+    [:input {:type "range" :step 30 :min 0 :max 300 :value @interpret-delay
+             :on-change #(reset! interpret-delay (js/parseInt (-> % .-target .-value)))}]
+    [:button#run
+     {:on-click #(do (when (or (>= @pointer (count @commands)) (= @status :done))
+                       (reset! output "")
+                       (reset! cell 0)
+                       (reset! cells (sorted-map))
+                       (reset! pointer 0))
+                     (interpret commands
+                                (fn []
+                                  (let [code (.charCodeAt @user-input 0)]
+                                    (reset! user-input (apply str (next @user-input)))
+                                    code))
+                                (fn [cell]
+                                  (swap! output str (char cell)))))}
+     "Run"]]
    [:textarea#input {:on-change #(reset! user-input (-> % .-target .-value))
                      :value @user-input}]
    [:div#output [:pre @output]]])
