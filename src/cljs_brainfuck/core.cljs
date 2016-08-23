@@ -61,10 +61,20 @@
          (recur elms (next cells) i))
        elms))])
 
+(defn is-number? [char]
+  (let [code (.charCodeAt char 0)]
+    (and (>= code 48) (<= code 57))))
+
 (defn make-source-div [commands pointer]
-  [:pre#source-box (subs commands 0 pointer)
-   [:span (nth commands pointer)]
-   (subs commands (inc pointer))])
+  (let [begin (loop [n pointer]
+                (if (is-number? (nth commands (dec n)))
+                  (recur (dec n))
+                  n))
+        end (inc pointer)]
+    [:pre#source-box
+     (subs commands 0 begin)
+     [:span (subs commands begin end)]
+     (subs commands end)]))
 
 (enable-console-print!)
 
@@ -102,14 +112,14 @@
 (defn interpret [commands input-func output-func]
   (reset! status :running)
   (go-loop []
-    (interpret-one-step @commands input-func output-func)
+    (interpret-one-step commands input-func output-func)
     (reset! cells-div (make-cells-div @cells @cell))
-    (reset! source-div (make-source-div @commands @pointer))
+    (reset! source-div (make-source-div commands @pointer))
     (swap! pointer inc)
     (let [[v ch] (alts! [(timeout @interpret-delay)
                          break-chan])]
       (when-not (= ch break-chan)
-        (if-not (>= @pointer (count @commands))
+        (if-not (>= @pointer (count commands))
           (recur)
           (reset! status :stop))))))
 
@@ -133,7 +143,7 @@
         "Stop"]]
       [:button
        {:on-click #(do (when (= @status :stop) (reinit))
-                       (interpret commands
+                       (interpret @commands
                               (fn []
                                 (let [code (.charCodeAt @user-input 0)]
                                   (reset! user-input (apply str (next @user-input)))
