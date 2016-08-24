@@ -21,6 +21,7 @@ body {
     width: 100%;
     padding: 3px;
     box-sizing: border-box;
+    overflow-x: auto;
 }
 
 #source span {
