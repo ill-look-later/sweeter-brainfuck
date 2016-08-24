@@ -11,18 +11,7 @@ body {
     padding: 10px;
 }
 
-textarea {
-    background: #272727;
-    color: white;
-    margin-bottom: 5px;
-    height: auto;
-    min-height: 256px;
-    width: 100%;
-    padding: 3px;
-    box-sizing: border-box;
-}
-
-#source-box {
+#source, #input {
     border: 1px solid white;
     background: #272727;
     color: white;
@@ -34,7 +23,7 @@ textarea {
     box-sizing: border-box;
 }
 
-#source-box span {
+#source span {
     background: gray;
 }
 

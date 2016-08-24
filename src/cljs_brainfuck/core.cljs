@@ -60,7 +60,7 @@
                   (recur (dec n))
                   n))
         end (inc pointer)]
-    [:pre#source-box
+    [:pre#source
      (subs commands 0 begin)
      [:span (subs commands begin end)]
      (subs commands end)]))
@@ -68,10 +68,18 @@
 (enable-console-print!)
 
 (def cells-div (r/atom (make-cells-div {10 0} 0)))
-(def commands (r/atom "72+.>101+.>108+..>111+.>32+.>87+.2<.3>114+.4<.5>100+.>33+."))
+(def commands
+  (r/atom (str "三种方式说: \"Hello World!\"\n\n"
+               "原版:\n"
+               "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]"
+               ">>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.\n\n"
+               "读输入: 2>\n"
+               "13+[>,.<-]\n\n"
+               "糖: 3>\n"
+               "72+.>101+.>108+..>111+.>32+.>87+.2<.3>114+.4<.5>100+.>33+.")))
 (def pointer (atom 0))
-(def source-div (r/atom (make-source-div @commands @pointer)))
-(def user-input (r/atom ""))
+(def source-div (r/atom (make-source-div "" 0)))
+(def user-input (r/atom "Hello World!\n"))
 (def output (r/atom ""))
 (def interpret-delay (r/atom 0))
 (def status (r/atom :stop))
@@ -128,8 +136,9 @@
   [:div.box
    @cells-div
    (if (= @status :stop)
-     [:textarea#source {:on-change #(reset! commands (-> % .-target .-value))
-                        :value @commands}]
+     [:pre#source {:on-input #(reset! commands (-> % .-target .-innerText))
+                   :content-editable true}
+      @commands]
      @source-div)
    [:div.actions
     [:input {:type "range" :step 30 :min 0 :max 900 :value @interpret-delay
@@ -154,8 +163,9 @@
        (if (= @status :pause)
          "Continue"
          "Run")])]
-   [:textarea#input {:on-change #(reset! user-input (-> % .-target .-value))
-                     :value @user-input}]
+   [:pre#input {:on-input #(reset! user-input (-> % .-target .-innerText))
+                :content-editable true}
+    @user-input]
    [:div#output [:pre @output]]])
 
 (r/render-component [body]
