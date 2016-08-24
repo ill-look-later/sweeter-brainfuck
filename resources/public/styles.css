@@ -11,6 +11,14 @@ body {
     padding: 10px;
 }
 
+@media (max-width: 640px) {
+    .box {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+}
+
 #source, #input {
     border: 1px solid white;
     background: #272727;
@@ -54,6 +62,7 @@ body {
 
 #cells-box {
     display: flex;
+    overflow-x: auto;
 }
 
 .cell {
